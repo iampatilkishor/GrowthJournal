@@ -88,6 +88,7 @@ function getMobileNav(tier) {
         { href: "/rules", label: "Rules", icon: "📌" },
         { href: "/assess", label: "Assess", icon: "🎯" },
         { href: "/tools", label: "Tools", icon: "🧮" },
+        { href: "/badges", label: "Badges", icon: "🏅" },
         { href: "/profile", label: "Profile", icon: "👤" },
       ],
     };
@@ -105,6 +106,7 @@ function getMobileNav(tier) {
         { href: "/rules", label: "Rules", icon: "📌" },
         { href: "/assess", label: "Assess", icon: "🎯" },
         { href: "/tools", label: "Tools", icon: "🧮" },
+        { href: "/badges", label: "Badges", icon: "🏅" },
         { href: "/profile", label: "Profile", icon: "👤" },
       ],
     };
@@ -137,6 +139,7 @@ function getDesktopNav(tier) {
     { href: "/rules", label: "Rules", icon: "📌" },
     { href: "/assess", label: "Assess", icon: "🎯" },
     { href: "/tools", label: "Tools", icon: "🧮" },
+    { href: "/badges", label: "Badges", icon: "🏅" },
     { href: "/profile", label: "Profile", icon: "👤" },
   ];
 }

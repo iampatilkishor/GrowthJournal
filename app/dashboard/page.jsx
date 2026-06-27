@@ -7,6 +7,74 @@ import OnboardingWizard from "@/components/OnboardingWizard.jsx";
 import { showNotification } from "@/components/PremarketReminder.jsx";
 import UpgradeModal from "@/components/UpgradeModal.jsx";
 
+/* ── Badge highlight row ─────────────────────────────────────────────────── */
+const CAT_COLOR = {
+  streak:     { bg: '#fff7ed', border: '#fed7aa', text: '#9a3412', dot: '#f97316' },
+  milestone:  { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', dot: '#3b82f6' },
+  discipline: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', dot: '#22c55e' },
+  capital:    { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', dot: '#a855f7' },
+};
+
+function BadgeHighlights({ badges }) {
+  const earned = (badges || []).filter(b => b.earned);
+  if (!earned.length) return (
+    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 14, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+      <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 600 }}>🏅 No badges yet — journal your first trade to earn one</span>
+      <Link href="/profile" style={{ fontSize: 12, color: '#6366f1', fontWeight: 700, textDecoration: 'none' }}>See all badges →</Link>
+    </div>
+  );
+
+  const recent = earned.slice(-4);
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, flexShrink: 0 }}>🏅 Badges</span>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+        {recent.map(b => {
+          const c = CAT_COLOR[b.cat] || CAT_COLOR.milestone;
+          return (
+            <span key={b.id} title={b.desc} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: c.text }}>
+              {b.icon} {b.name}
+            </span>
+          );
+        })}
+        {earned.length > 4 && <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, alignSelf: 'center' }}>+{earned.length - 4} more</span>}
+      </div>
+      <Link href="/profile" style={{ fontSize: 12, color: '#6366f1', fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>View all →</Link>
+    </div>
+  );
+}
+
+/* ── New-badge toast ─────────────────────────────────────────────────────── */
+function NewBadgeToast({ badges, newIds, onDismiss }) {
+  const items = (badges || []).filter(b => newIds.includes(b.id));
+  if (!items.length) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center',
+      pointerEvents: 'none',
+    }}>
+      {items.map(b => (
+        <div key={b.id} style={{
+          background: '#1a1a2e', color: '#fff', borderRadius: 16,
+          padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)', pointerEvents: 'all',
+          animation: 'slideUp 0.4s ease',
+        }}>
+          <span style={{ fontSize: 24 }}>{b.icon}</span>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#a3e635', letterSpacing: 1, textTransform: 'uppercase' }}>Badge Unlocked!</div>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{b.name}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{b.desc}</div>
+          </div>
+          <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 18, marginLeft: 4, padding: 0 }}>×</button>
+        </div>
+      ))}
+      <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
+    </div>
+  );
+}
+
 /* ── Helpers ── */
 function fmt(n, d = 0) {
   if (n == null) return "—";
@@ -407,6 +475,8 @@ function SettingsModal({ journey, onSave, onClose }) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [badges, setBadges] = useState(null);
+  const [newBadges, setNewBadges] = useState([]); // badges earned this session
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showOnboard, setShowOnboard] = useState(false);
@@ -416,16 +486,20 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [dr, ar, sr] = await Promise.all([
+      const [dr, ar, sr, br] = await Promise.all([
         authFetch("/api/dashboard-stats"),
         authFetch("/api/analytics"),
         authFetch("/api/user-settings"),
+        authFetch("/api/badges"),
       ]);
       const dash = await dr.json();
       const ana = await ar.json().catch(() => null);
       const stg = await sr.json().catch(() => null);
+      const bdg = await br.json().catch(() => null);
       setData(dash);
       setAnalytics(ana);
+      setBadges(bdg?.badges || []);
+      if (bdg?.newlyEarned?.length) setNewBadges(bdg.newlyEarned);
       if (stg?.settings)
         setTrial({
           trialDaysLeft: stg.settings.trialDaysLeft,
@@ -964,6 +1038,10 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* ── Badges ── */}
+        <BadgeHighlights badges={badges} />
+        <NewBadgeToast badges={badges} newIds={newBadges} onDismiss={() => setNewBadges([])} />
 
         {/* ── All-time stats ── */}
         <div className="db-row db-r4" style={{ marginBottom: 16 }}>

@@ -52,10 +52,81 @@ function InfoRow({ label, value, mono }) {
   );
 }
 
+const BADGE_CAT_LABELS = {
+  streak:     { label: '🔥 Journaling Streaks',  color: '#9a3412', bg: '#fff7ed', border: '#fed7aa' },
+  milestone:  { label: '🚀 Trade Milestones',    color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
+  discipline: { label: '✅ Discipline',           color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
+  capital:    { label: '🏆 Capital Goals',        color: '#6b21a8', bg: '#faf5ff', border: '#e9d5ff' },
+};
+
+function BadgeShowcase({ badges }) {
+  if (!badges) return <div style={{ padding: 20, color: 'var(--text-muted)', textAlign: 'center', fontSize: 13 }}>Loading badges…</div>;
+
+  const cats = ['streak', 'milestone', 'discipline', 'capital'];
+  const earned = badges.filter(b => b.earned).length;
+
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div className="card" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            🏅 Badges
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: 700, background: earned > 0 ? '#e8f5e9' : '#f3f4f6', color: earned > 0 ? '#2e7d32' : '#9ca3af', padding: '3px 10px', borderRadius: 20 }}>
+            {earned} / {badges.length} earned
+          </span>
+        </div>
+
+        {cats.map(cat => {
+          const catBadges = badges.filter(b => b.cat === cat);
+          const meta = BADGE_CAT_LABELS[cat];
+          return (
+            <div key={cat} style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: meta.color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{meta.label}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+                {catBadges.map(b => (
+                  <div key={b.id} title={b.desc} style={{
+                    border: `1.5px solid ${b.isNew ? '#f59e0b' : b.earned ? meta.border : 'var(--border)'}`,
+                    borderRadius: 12,
+                    padding: '12px 10px',
+                    textAlign: 'center',
+                    background: b.isNew ? '#fffbeb' : b.earned ? meta.bg : '#fafafa',
+                    opacity: b.earned ? 1 : 0.45,
+                    position: 'relative',
+                    transition: 'all 0.15s',
+                  }}>
+                    {b.isNew && <div style={{ position: 'absolute', top: 6, left: 8, fontSize: 9, fontWeight: 800, color: '#d97706', background: '#fef3c7', borderRadius: 6, padding: '1px 5px' }}>NEW</div>}
+                    <div style={{ fontSize: 24, marginBottom: 4, filter: b.earned ? 'none' : 'grayscale(1)' }}>{b.icon}</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: b.earned ? meta.color : 'var(--text-muted)', lineHeight: 1.3, marginBottom: 2 }}>{b.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4 }}>{b.desc}</div>
+                    {b.earned && b.earned_at && (
+                      <div style={{ fontSize: 9, color: meta.color, fontWeight: 700, marginTop: 4, opacity: 0.8 }}>
+                        {new Date(b.earned_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    )}
+                    {!b.earned && (
+                      <div style={{ position: 'absolute', top: 6, right: 8, fontSize: 12 }}>🔒</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { user, tier, logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [badges, setBadges] = useState(null);
+
+  useEffect(() => {
+    authFetch('/api/badges').then(r => r.json()).then(d => setBadges(d.badges || [])).catch(() => setBadges([]));
+  }, []);
 
   useEffect(() => {
     async function fetchStats() {
@@ -180,6 +251,9 @@ export default function ProfilePage() {
           color={pnlColor}
         />
       </div>
+
+      {/* Badges */}
+      <BadgeShowcase badges={badges} />
 
       {/* Account details */}
       <div className="card" style={{ marginBottom: '16px' }}>
