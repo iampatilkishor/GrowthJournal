@@ -8,6 +8,21 @@ export async function GET(request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
+    const month = searchParams.get('month'); // YYYY-MM — returns all dates with entries
+
+    if (month) {
+      const [y, m] = month.split('-').map(Number);
+      const from   = `${month}-01`;
+      const nextM  = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      const { data } = await db.from('daily_journal')
+        .select('date, mental_state, market_bias, what_went_well, biggest_mistake')
+        .eq('user_id', userId)
+        .gte('date', from)
+        .lt('date', nextM)
+        .order('date');
+      return NextResponse.json({ entries: data || [] });
+    }
+
     const date = searchParams.get('date') || todayIST();
 
     const { data } = await db.from('daily_journal')

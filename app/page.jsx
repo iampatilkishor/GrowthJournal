@@ -517,6 +517,9 @@ export default function LandingPage() {
           <Link href="#pricing" className="nl">
             Pricing
           </Link>
+          <Link href="/guide" className="nl">
+            User Guide
+          </Link>
           {isLoggedIn ? (
             <Link href="/dashboard" className="nc">
               Dashboard →
@@ -555,6 +558,9 @@ export default function LandingPage() {
           <a href="#pricing" onClick={() => setMenuOpen(false)}>
             Pricing
           </a>
+          <Link href="/guide" onClick={() => setMenuOpen(false)}>
+            User Guide
+          </Link>
           {isLoggedIn ? (
             <Link
               href="/dashboard"
@@ -1798,6 +1804,7 @@ export default function LandingPage() {
           </Link>
           <div className="foot-links">
             {[
+              ["/guide", "User Guide"],
               ["/journal", "Journal"],
               ["/weekly", "Weekly"],
               ["/rules", "Rules"],
