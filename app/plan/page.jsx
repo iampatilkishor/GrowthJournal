@@ -15,7 +15,7 @@ const ACTIONS = ['buy', 'sell', 'buy_ce', 'buy_pe', 'sell_ce', 'sell_pe', 'buy_f
 const ACTION_LABELS = { buy: 'BUY', sell: 'SELL', buy_ce: 'BUY CE', buy_pe: 'BUY PE', sell_ce: 'SELL CE', sell_pe: 'SELL PE', buy_fut: 'BUY FUT', sell_fut: 'SELL FUT' };
 
 function blankScenario() {
-  return { conditionType: 'range', conditionValueLow: '', conditionValueHigh: '', action: 'buy', instrument: '', maxQuantity: 25, entryReason: '', targetPrice: '', stopLoss: '', exitReason: '', product: 'I' };
+  return { conditionType: 'range', conditionValueLow: '', conditionValueHigh: '', action: 'buy', instrument: '', maxQuantity: 25, entryReason: '', entryPrice: '', targetPrice: '', stopLoss: '', exitReason: '', product: 'I' };
 }
 
 function DeleteModal({ plan, onConfirm, onCancel }) {
@@ -131,8 +131,9 @@ export default function PlanPage() {
         conditionType: sc.condition_type, conditionValueLow: sc.condition_value_low ?? '',
         conditionValueHigh: sc.condition_value_high ?? '', action: sc.action,
         instrument: sc.instrument, maxQuantity: sc.max_quantity,
-        entryReason: sc.entry_reason || '', targetPrice: sc.target_price ?? '',
-        stopLoss: sc.stop_loss ?? '', exitReason: sc.exit_reason || '', product: sc.product || 'I',
+        entryReason: sc.entry_reason || '', entryPrice: sc.entry_price ?? '',
+        targetPrice: sc.target_price ?? '', stopLoss: sc.stop_loss ?? '',
+        exitReason: sc.exit_reason || '', product: sc.product || 'I',
       })) : [blankScenario()]);
       setShowForm(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -166,6 +167,7 @@ export default function PlanPage() {
           conditionValueLow:  s.conditionValueLow  ? parseFloat(s.conditionValueLow)  : null,
           conditionValueHigh: s.conditionValueHigh ? parseFloat(s.conditionValueHigh) : null,
           maxQuantity: parseInt(s.maxQuantity, 10),
+          entryPrice:  s.entryPrice  ? parseFloat(s.entryPrice)  : null,
           targetPrice: s.targetPrice ? parseFloat(s.targetPrice) : null,
           stopLoss:    s.stopLoss    ? parseFloat(s.stopLoss)    : null,
         })),
@@ -355,21 +357,32 @@ export default function PlanPage() {
                     <label className="form-label">Entry Reason</label>
                     <input className="form-input" value={s.entryReason} onChange={e => updateScenario(idx, 'entryReason', e.target.value)} placeholder="Breakout above resistance, VWAP bounce…" />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Entry Price (₹)</label>
+                      <input className="form-input" type="number" step="0.5" value={s.entryPrice ?? ''} onChange={e => updateScenario(idx, 'entryPrice', e.target.value)} placeholder="200" />
+                    </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ color: 'var(--buy)' }}>Target (₹)</label>
                       <input className="form-input" type="number" step="0.5" value={s.targetPrice} onChange={e => updateScenario(idx, 'targetPrice', e.target.value)} placeholder="250" style={{ borderColor: s.targetPrice ? 'var(--buy)' : undefined }} />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ color: 'var(--sell)' }}>Stop Loss (₹)</label>
-                      <input className="form-input" type="number" step="0.5" value={s.stopLoss} onChange={e => updateScenario(idx, 'stopLoss', e.target.value)} placeholder="80" style={{ borderColor: s.stopLoss ? 'var(--sell)' : undefined }} />
+                      <input className="form-input" type="number" step="0.5" value={s.stopLoss} onChange={e => updateScenario(idx, 'stopLoss', e.target.value)} placeholder="180" style={{ borderColor: s.stopLoss ? 'var(--sell)' : undefined }} />
                     </div>
                   </div>
-                  {s.targetPrice && s.stopLoss && (() => {
-                    const rr = (parseFloat(s.targetPrice) / parseFloat(s.stopLoss)).toFixed(2);
+                  {s.entryPrice && s.targetPrice && s.stopLoss && (() => {
+                    const entry  = parseFloat(s.entryPrice);
+                    const target = parseFloat(s.targetPrice);
+                    const sl     = parseFloat(s.stopLoss);
+                    const reward = Math.abs(target - entry);
+                    const risk   = Math.abs(entry - sl);
+                    if (!risk) return null;
+                    const rr = (reward / risk).toFixed(2);
                     return isNaN(rr) ? null : (
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', textAlign: 'right' }}>
                         R:R = <strong style={{ color: parseFloat(rr) >= 1.5 ? 'var(--buy)' : 'var(--sell)' }}>{rr}:1</strong>
+                        <span style={{ marginLeft: 8 }}>Risk ₹{risk.toFixed(1)} · Reward ₹{reward.toFixed(1)}</span>
                       </div>
                     );
                   })()}

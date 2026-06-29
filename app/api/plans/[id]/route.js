@@ -62,6 +62,7 @@ export async function PATCH(request, { params }) {
           instrument: (s.instrument || '').toUpperCase(),
           max_quantity: s.maxQuantity || 1,
           entry_reason: s.entryReason || '',
+          entry_price:  s.entryPrice  || null,
           target_price: s.targetPrice || null,
           stop_loss: s.stopLoss || null,
           exit_reason: s.exitReason || '',
