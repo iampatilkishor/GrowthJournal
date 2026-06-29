@@ -355,6 +355,17 @@ function DayDetail({ date, djEntry, tradeGroup, loading }) {
   );
 }
 
+/* ─── NumInput — defined OUTSIDE the page so it never recreates on re-render ── */
+function NumInput({ label, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px' }}>{label}</label>
+      <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontFamily: 'inherit', outline: 'none' }} />
+    </div>
+  );
+}
+
 /* ─── Main page ──────────────────────────────────────────────────────────── */
 export default function JournalPage() {
   const { tier } = useAuth();
@@ -496,16 +507,6 @@ export default function JournalPage() {
 
   const stats   = todayData?.stats   || {};
   const entries = todayData?.entries || [];
-
-  function NumInput({ label, value, onChange, placeholder }) {
-    return (
-      <div>
-        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px' }}>{label}</label>
-        <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontFamily: 'inherit', outline: 'none' }} />
-      </div>
-    );
-  }
 
   const TAB_BTN = (active) => ({
     padding: '8px 22px', borderRadius: '10px', border: 'none',
