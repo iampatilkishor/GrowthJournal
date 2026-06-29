@@ -477,6 +477,7 @@ export default function Dashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [badges, setBadges] = useState(null);
   const [newBadges, setNewBadges] = useState([]); // badges earned this session
+  const [dataMode, setDataMode] = useState('real'); // 'real' | 'test'
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showOnboard, setShowOnboard] = useState(false);
@@ -484,11 +485,11 @@ export default function Dashboard() {
   const [trial, setTrial] = useState(null); // { trialDaysLeft, trialExpired, tier }
   const [upgradeModal, setUpgradeModal] = useState(null); // null | 'founding' | 'pro'
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode = 'real') => {
     try {
       const [dr, ar, sr, br] = await Promise.all([
-        authFetch("/api/dashboard-stats"),
-        authFetch("/api/analytics"),
+        authFetch(`/api/dashboard-stats?mode=${mode}`),
+        authFetch(`/api/analytics?mode=${mode}`),
         authFetch("/api/user-settings"),
         authFetch("/api/badges"),
       ]);
@@ -513,9 +514,13 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(dataMode); }, [load]);
+
+  async function switchMode(mode) {
+    setDataMode(mode);
+    setLoading(true);
+    await load(mode);
+  }
 
   async function saveSettings(u) {
     await authFetch("/api/user-settings", {
@@ -676,6 +681,20 @@ export default function Dashboard() {
                 🔥 {streak}-day streak
               </span>
             )}
+            {/* Real / Test toggle */}
+            <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: 22, padding: 3, gap: 2 }}>
+              {['real','test'].map(m => (
+                <button key={m} onClick={() => switchMode(m)} style={{
+                  padding: '6px 14px', borderRadius: 18, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                  background: dataMode === m ? (m === 'test' ? '#fef3c7' : '#fff') : 'transparent',
+                  color: dataMode === m ? (m === 'test' ? '#92400e' : '#374151') : '#9ca3af',
+                  boxShadow: dataMode === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s',
+                }}>
+                  {m === 'real' ? '📊 Real' : '🧪 Test'}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setShowSettings(true)}
               style={{

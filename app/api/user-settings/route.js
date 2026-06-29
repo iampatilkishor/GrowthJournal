@@ -13,6 +13,7 @@ const DEFAULTS = {
   trial_started_at:  null,
   tier:              'free',
   plan:              'trial',
+  test_mode:         false,
 };
 
 export async function GET(request) {
@@ -78,6 +79,7 @@ export async function POST(request) {
       trial_started_at:   existing?.trial_started_at || new Date().toISOString(),
       tier:               body.tier  || existing?.tier  || 'free',
       plan:               body.plan  || existing?.plan  || 'trial',
+      test_mode:          body.testMode != null ? !!body.testMode : (existing?.test_mode ?? false),
       updated_at:         new Date().toISOString(),
     };
 

@@ -187,20 +187,27 @@ function Empty({ msg }) {
 
 /* ─── Page ─────────────────────────────────────────────────────────────── */
 export default function AnalyticsPage() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [chart,   setChart]   = useState('capital'); // 'capital' | 'pnl' | 'drawdown'
+  const [data,     setData]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [chart,    setChart]    = useState('capital'); // 'capital' | 'pnl' | 'drawdown'
+  const [dataMode, setDataMode] = useState('real');   // 'real' | 'test'
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode = 'real') => {
+    setLoading(true);
     try {
-      const res  = await authFetch('/api/analytics');
+      const res  = await authFetch(`/api/analytics?mode=${mode}`);
       const json = await res.json();
       setData(json);
     } catch {}
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(dataMode); }, [load]);
+
+  async function switchMode(mode) {
+    setDataMode(mode);
+    await load(mode);
+  }
 
   if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '40vh', color: 'var(--text-muted)' }}>Loading analytics…</div>;
@@ -240,9 +247,24 @@ export default function AnalyticsPage() {
         }
       `}</style>
 
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 900, margin: '0 0 4px', color: 'var(--text)', letterSpacing: '-0.3px' }}>Analytics</h1>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Why you're winning. Why you're losing. What to fix.</p>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: '22px', fontWeight: 900, margin: '0 0 4px', color: 'var(--text)', letterSpacing: '-0.3px' }}>Analytics</h1>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Why you're winning. Why you're losing. What to fix.</p>
+        </div>
+        <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: 22, padding: 3, gap: 2, alignSelf: 'center' }}>
+          {['real','test'].map(m => (
+            <button key={m} onClick={() => switchMode(m)} style={{
+              padding: '6px 16px', borderRadius: 18, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+              background: dataMode === m ? (m === 'test' ? '#fef3c7' : '#fff') : 'transparent',
+              color: dataMode === m ? (m === 'test' ? '#92400e' : '#374151') : '#9ca3af',
+              boxShadow: dataMode === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s',
+            }}>
+              {m === 'real' ? '📊 Real' : '🧪 Test'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── KPI row ── */}

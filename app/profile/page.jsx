@@ -123,10 +123,28 @@ export default function ProfilePage() {
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [badges, setBadges] = useState(null);
+  const [testMode, setTestMode] = useState(false);
+  const [testModeLoading, setTestModeLoading] = useState(false);
 
   useEffect(() => {
     authFetch('/api/badges').then(r => r.json()).then(d => setBadges(d.badges || [])).catch(() => setBadges([]));
+    authFetch('/api/user-settings').then(r => r.json()).then(d => setTestMode(!!d.settings?.test_mode)).catch(() => {});
   }, []);
+
+  async function toggleTestMode() {
+    setTestModeLoading(true);
+    const next = !testMode;
+    try {
+      await authFetch('/api/user-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testMode: next }),
+      });
+      setTestMode(next);
+    } catch { /* ignore */ } finally {
+      setTestModeLoading(false);
+    }
+  }
 
   useEffect(() => {
     async function fetchStats() {
@@ -304,6 +322,41 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Test Mode */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+          Journal Mode
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: testMode ? '#b45309' : 'var(--text)' }}>
+              {testMode ? '🧪 Test Mode ON' : '📊 Real Mode'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+              {testMode
+                ? 'All new trades are saved as test trades and excluded from real stats.'
+                : 'All new trades count toward your real performance.'}
+            </div>
+          </div>
+          <button
+            onClick={toggleTestMode}
+            disabled={testModeLoading}
+            style={{
+              width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+              background: testMode ? '#f59e0b' : '#d1d5db',
+              position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+            }}
+          >
+            <span style={{
+              position: 'absolute', top: 3, left: testMode ? 25 : 3,
+              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              transition: 'left 0.2s', display: 'block',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }} />
+          </button>
+        </div>
+      </div>
 
       {/* Actions */}
       <div className="card">

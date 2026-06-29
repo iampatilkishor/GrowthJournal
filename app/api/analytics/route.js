@@ -9,6 +9,9 @@ export async function GET(request) {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('mode') === 'test' ? 'test' : 'real';
+
     const [
       { data: trades },
       { data: dailyJournals },
@@ -17,6 +20,7 @@ export async function GET(request) {
       db.from('journal')
         .select('pnl, trade_date, instrument, direction, emotion, followed_plan, entry_price, exit_price, created_at')
         .eq('user_id', userId)
+        .eq('trade_mode', mode)
         .order('trade_date', { ascending: true }),
       db.from('daily_journal')
         .select('date, mental_state')

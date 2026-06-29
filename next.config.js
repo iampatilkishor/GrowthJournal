@@ -4,7 +4,7 @@ const nextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   allowedDevOrigins: [
     "10.77.153.64",
-    "9d6d-2402-8100-2818-ea8f-78e2-f20a-e2ba-cc42.ngrok-free.app",
+    "3107-2402-8100-2829-504-78e2-f20a-e2ba-cc42.ngrok-free.app",
   ],
 };
 module.exports = nextConfig;

@@ -9,7 +9,6 @@ import { useAuth } from "@/components/AuthGate.jsx";
 /* ─── Tier access ──────────────────────────────────────────────────────── */
 const TIER_REQUIRED = {
   "/dashboard": "user",
-  "/plan": "user",
   "/watchlist": "connected",
   "/order": "connected",
   "/journal": "user",
@@ -82,7 +81,6 @@ function getMobileNav(tier) {
         { href: "/order", label: "Orders", icon: "⚡" },
       ],
       more: [
-        { href: "/plan", label: "Plan", icon: "📋" },
         { href: "/weekly", label: "Weekly", icon: "📅" },
         { href: "/analytics", label: "Analytics", icon: "📈" },
         { href: "/rules", label: "Rules", icon: "📌" },
@@ -98,11 +96,10 @@ function getMobileNav(tier) {
       primary: [
         { href: "/dashboard", label: "Dashboard", icon: "📊" },
         { href: "/journal", label: "Journal", icon: "📓" },
-        { href: "/plan", label: "Plan", icon: "📋" },
+        { href: "/analytics", label: "Analytics", icon: "📈" },
         { href: "/weekly", label: "Weekly", icon: "📅" },
       ],
       more: [
-        { href: "/analytics", label: "Analytics", icon: "📈" },
         { href: "/rules", label: "Rules", icon: "📌" },
         { href: "/assess", label: "Assess", icon: "🎯" },
         { href: "/tools", label: "Tools", icon: "🧮" },
@@ -126,7 +123,6 @@ function getMobileNav(tier) {
 function getDesktopNav(tier) {
   return [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
-    { href: "/plan", label: "Plan", icon: "📋" },
     ...(tier === "connected"
       ? [
           { href: "/watchlist", label: "Watchlist", icon: "👁️" },

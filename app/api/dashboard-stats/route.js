@@ -7,6 +7,8 @@ export async function GET(request) {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const { searchParams } = new URL(request.url);
+    const mode    = searchParams.get('mode') === 'test' ? 'test' : 'real';
     const today   = todayIST();
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
@@ -18,9 +20,9 @@ export async function GET(request) {
       { data: latestWeekly },
       { data: settings },
     ] = await Promise.all([
-      db.from('journal').select('pnl, followed_plan, trade_date').eq('user_id', userId),
-      db.from('journal').select('pnl, followed_plan').eq('user_id', userId).eq('trade_date', today),
-      db.from('journal').select('pnl, followed_plan, trade_date').eq('user_id', userId).gte('trade_date', weekAgo),
+      db.from('journal').select('pnl, followed_plan, trade_date').eq('user_id', userId).eq('trade_mode', mode),
+      db.from('journal').select('pnl, followed_plan').eq('user_id', userId).eq('trade_date', today).eq('trade_mode', mode),
+      db.from('journal').select('pnl, followed_plan, trade_date').eq('user_id', userId).gte('trade_date', weekAgo).eq('trade_mode', mode),
       db.from('daily_journal').select('mental_state, market_bias, profit_target, daily_loss_limit').eq('user_id', userId).eq('date', today).single(),
       db.from('weekly_review').select('closing_capital, date_to').eq('user_id', userId).not('closing_capital', 'is', null).order('date_to', { ascending: false }).limit(1).single(),
       db.from('user_settings').select('*').eq('user_id', userId).single(),

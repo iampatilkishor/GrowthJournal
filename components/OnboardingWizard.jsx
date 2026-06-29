@@ -19,7 +19,7 @@ const CURRENCIES = [
   { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
 ];
 
-const STEP_LABELS = ['Currency', 'Starting Capital', 'Your Goal', 'Timeline'];
+const STEP_LABELS = ['Currency', 'Starting Capital', 'Your Goal', 'Timeline', 'Journal Mode'];
 
 export default function OnboardingWizard({ onComplete }) {
   const [step, setStep]       = useState(0);
@@ -33,6 +33,7 @@ export default function OnboardingWizard({ onComplete }) {
   const [goalDays,       setGoalDays]       = useState('365');
   const [goalDate,       setGoalDate]       = useState('');
   const [startDate,      setStartDate]      = useState(new Date().toISOString().slice(0, 10));
+  const [testMode,       setTestMode]       = useState(false);
 
   /* helpers */
   const sym = currency.symbol;
@@ -51,6 +52,7 @@ export default function OnboardingWizard({ onComplete }) {
       if (timelineMode === 'days') return goalDays !== '' && parseInt(goalDays) >= 7;
       return goalDate !== '' && goalDate > startDate;
     }
+    if (step === 4) return true;
     return false;
   }
 
@@ -69,6 +71,7 @@ export default function OnboardingWizard({ onComplete }) {
           goalDays:         timelineMode === 'days' ? parseInt(goalDays) : null,
           goalDate:         timelineMode === 'date' ? goalDate : null,
           journeyStartDate: startDate,
+          testMode,
         }),
       });
       const data = await res.json();
@@ -287,7 +290,7 @@ export default function OnboardingWizard({ onComplete }) {
           {/* ── Step 3: Timeline ── */}
           {step === 3 && (
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Step 4 of 4</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Step 4 of 5</div>
               <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text)', margin: '0 0 8px', letterSpacing: '-0.3px' }}>When do you want to hit that goal?</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
                 Set a deadline. It creates urgency, tracks your daily progress, and shows days remaining.
@@ -392,7 +395,7 @@ export default function OnboardingWizard({ onComplete }) {
               >← Back</button>
             )}
             <button
-              onClick={step < 3 ? () => setStep(s => s + 1) : handleFinish}
+              onClick={step < 4 ? () => setStep(s => s + 1) : handleFinish}
               disabled={!canNext() || saving}
               style={{
                 flex: 1, padding: '14px', borderRadius: '12px', fontSize: '16px', fontWeight: 800,
@@ -404,9 +407,57 @@ export default function OnboardingWizard({ onComplete }) {
                 transition: 'all 0.2s',
               }}
             >
-              {saving ? 'Saving...' : step < 3 ? 'Continue →' : '🚀 Start My Journey'}
+              {saving ? 'Saving...' : step < 4 ? 'Continue →' : '🚀 Start My Journey'}
             </button>
           </div>
+
+          {/* ── Step 4: Journal Mode ── */}
+          {step === 4 && (
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Step 5 of 5</div>
+              <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text)', margin: '0 0 8px', letterSpacing: '-0.3px' }}>How do you want to start?</h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
+                Choose your journaling mode. You can always switch later in your Profile.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  {
+                    value: false,
+                    icon: '📊',
+                    title: 'Real Journaling',
+                    desc: 'Every trade counts toward your actual performance, streaks, badges, and capital progress. Best if you\'re ready to track real trades.',
+                    color: '#6366f1',
+                    bg: '#ede9fe',
+                    border: '#c4b5fd',
+                  },
+                  {
+                    value: true,
+                    icon: '🧪',
+                    title: 'Test Mode',
+                    desc: 'Explore the app without affecting your stats. Test trades are tracked separately and can be deleted anytime. Perfect for getting familiar.',
+                    color: '#b45309',
+                    bg: '#fef3c7',
+                    border: '#fcd34d',
+                  },
+                ].map(opt => (
+                  <div key={String(opt.value)} onClick={() => setTestMode(opt.value)} style={{
+                    border: `2px solid ${testMode === opt.value ? opt.border : 'var(--border)'}`,
+                    borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
+                    background: testMode === opt.value ? opt.bg : '#fff',
+                    transition: 'all 0.15s',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <span style={{ fontSize: 22 }}>{opt.icon}</span>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: testMode === opt.value ? opt.color : 'var(--text)' }}>{opt.title}</div>
+                      {testMode === opt.value && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: opt.color, background: '#fff', borderRadius: 10, padding: '2px 8px', border: `1px solid ${opt.border}` }}>Selected</span>}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, paddingLeft: 32 }}>{opt.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {step === 0 && (
             <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginTop: '16px', marginBottom: 0 }}>

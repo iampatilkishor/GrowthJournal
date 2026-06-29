@@ -9,6 +9,7 @@ import Sidebar from "@/components/Sidebar.jsx";
 import PremarketReminder from "@/components/PremarketReminder.jsx";
 import PublicHeader from "@/components/PublicHeader.jsx";
 import AnnouncementBanner from "@/components/AnnouncementBanner.jsx";
+import TestModeBanner from "@/components/TestModeBanner.jsx";
 
 /* ─── Broker gate overlay ─────────────────────────────────────────────────── */
 function BrokerGate({ email, onBack }) {
@@ -370,6 +371,7 @@ export default function AuthGate({ children }) {
         <PremarketReminder />
         <main className="main-content">
           <AnnouncementBanner />
+          <TestModeBanner />
           {children}
           {showBrokerGate && (
             <BrokerGate email={user?.email} onBack={() => router.back()} />

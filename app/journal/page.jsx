@@ -239,8 +239,52 @@ function CalendarView({ calMonth, onMonthChange, tradeDateMap, djDateSet, select
   );
 }
 
+/* ─── If-Then scenario card ──────────────────────────────────────────────── */
+const ACTION_LABELS = {
+  buy_ce: '📈 Buy CE', buy_pe: '📉 Buy PE',
+  sell_ce: '📤 Sell CE', sell_pe: '📥 Sell PE',
+  buy_fut: '🟢 Buy Fut', sell_fut: '🔴 Sell Fut',
+  wait: '⏳ Wait', exit_all: '🚪 Exit All',
+};
+function ScenarioCard({ sc }) {
+  const low  = sc.condition_value_low  != null ? fmtPrice(sc.condition_value_low)  : null;
+  const high = sc.condition_value_high != null ? fmtPrice(sc.condition_value_high) : null;
+  const condText = low && high ? `${low} – ${high}` : low || high || '—';
+  const action   = ACTION_LABELS[sc.action] || sc.action;
+  const entry    = sc.entry_price  != null ? fmtPrice(sc.entry_price)  : null;
+  const target   = sc.target_price != null ? fmtPrice(sc.target_price) : null;
+  const sl       = sc.stop_loss    != null ? fmtPrice(sc.stop_loss)    : null;
+  let rr = null;
+  if (sc.entry_price && sc.target_price && sc.stop_loss) {
+    const reward = Math.abs(sc.target_price - sc.entry_price);
+    const risk   = Math.abs(sc.entry_price  - sc.stop_loss);
+    if (risk > 0) rr = (reward / risk).toFixed(2);
+  }
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', background: '#fafafa' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
+        <span style={{ fontSize: '12px', background: '#e8f0fe', color: '#1a73e8', borderRadius: '6px', padding: '2px 8px', fontWeight: 700 }}>
+          IF Nifty {condText}
+        </span>
+        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>→ {action}</span>
+        {sc.instrument && <span style={{ fontSize: '12px', background: '#f3e5f5', color: '#6a1b9a', borderRadius: '6px', padding: '2px 8px', fontWeight: 600 }}>{sc.instrument}</span>}
+        {sc.max_quantity && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Qty: {sc.max_quantity}</span>}
+        {rr && <span style={{ fontSize: '12px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '6px', padding: '2px 8px', fontWeight: 600 }}>R:R {rr}:1</span>}
+      </div>
+      {(entry || target || sl) && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '11px' }}>
+          {entry  && <span style={{ background: '#f0f0f0', borderRadius: '6px', padding: '2px 7px', color: 'var(--text-muted)' }}><span style={{ fontWeight: 600, color: 'var(--text)' }}>Entry</span> {entry}</span>}
+          {sl     && <span style={{ background: '#fff5f5', borderRadius: '6px', padding: '2px 7px', color: 'var(--sell)' }}><span style={{ fontWeight: 600 }}>SL</span> {sl}</span>}
+          {target && <span style={{ background: '#f0fff4', borderRadius: '6px', padding: '2px 7px', color: 'var(--buy)' }}><span style={{ fontWeight: 600 }}>Target</span> {target}</span>}
+        </div>
+      )}
+      {sc.entry_reason && <div style={{ marginTop: '6px', fontSize: '12px', color: '#555', lineHeight: 1.5 }}>{sc.entry_reason}</div>}
+    </div>
+  );
+}
+
 /* ─── Day detail (read-only) ─────────────────────────────────────────────── */
-function DayDetail({ date, djEntry, tradeGroup, loading }) {
+function DayDetail({ date, djEntry, tradeGroup, dayPlan, loading }) {
   if (!date) {
     return (
       <div style={{ border: '1px solid var(--border)', borderRadius: '16px', padding: '36px 24px', textAlign: 'center', color: 'var(--text-muted)', background: '#fff' }}>
@@ -311,6 +355,28 @@ function DayDetail({ date, djEntry, tradeGroup, loading }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* If-Then Plan */}
+        {dayPlan && dayPlan.scenarios?.length > 0 && (
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '13px', color: '#e65100', marginBottom: '6px' }}>
+              📋 Trading Plan — <span style={{ fontWeight: 500, color: 'var(--text-muted)', fontSize: '12px' }}>{dayPlan.title}</span>
+            </div>
+            {dayPlan.notes && (
+              <div style={{ fontSize: '12px', color: '#555', background: '#fff8e1', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', lineHeight: 1.5, border: '1px solid #ffe0b2' }}>
+                {dayPlan.notes}
+              </div>
+            )}
+            {(dayPlan.nifty_range_low || dayPlan.nifty_range_high) && (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Nifty expected range: <strong style={{ color: 'var(--text)' }}>{dayPlan.nifty_range_low ? fmtPrice(dayPlan.nifty_range_low) : '?'} – {dayPlan.nifty_range_high ? fmtPrice(dayPlan.nifty_range_high) : '?'}</strong>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {dayPlan.scenarios.map((sc, i) => <ScenarioCard key={sc.id || i} sc={sc} />)}
+            </div>
           </div>
         )}
 
@@ -397,7 +463,34 @@ export default function JournalPage() {
   const [djMonthEntries, setDjMonthEntries] = useState([]);
   const [selDate, setSelDate]               = useState(null);
   const [selDJ, setSelDJ]                   = useState(null);
+  const [selPlan, setSelPlan]               = useState(null);
   const [selDJLoading, setSelDJLoading]     = useState(false);
+
+  /* ── Manage tab ── */
+  const [manageEntries, setManageEntries]   = useState([]);
+  const [manageLoading, setManageLoading]   = useState(false);
+  const [manageLoaded, setManageLoaded]     = useState(false);
+  const [manageFilter, setManageFilter]     = useState({ mode: 'all', result: 'all', search: '' });
+  const [manageAction, setManageAction]     = useState(null); // { type: 'delete'|'move', id, name }
+
+  /* ── Test mode ── */
+  const [userTestMode, setUserTestMode]     = useState(false);
+
+  useEffect(() => {
+    authFetch('/api/user-settings').then(r => r.json()).then(d => setUserTestMode(!!d.settings?.test_mode)).catch(() => {});
+  }, []);
+
+  /* ── Trading Plan (Today tab) ── */
+  const [planId, setPlanId]                       = useState(null);
+  const [planScenarios, setPlanScenarios]         = useState([]);
+  const [planMaxTrades, setPlanMaxTrades]         = useState(5);
+  const [planMaxLoss, setPlanMaxLoss]             = useState(5000);
+  const [planNoTradeBefore, setPlanNoTradeBefore] = useState(15);
+  const [planMaxQtyPerScript, setPlanMaxQtyPerScript] = useState(50);
+  const [planLoading, setPlanLoading]             = useState(false);
+  const [planSaving, setPlanSaving]               = useState(false);
+  const [planSaved, setPlanSaved]                 = useState(false);
+  const [prefillModal, setPrefillModal]           = useState(null);
 
   /* Today: load DJ entry */
   const loadDJ = useCallback(async () => {
@@ -437,9 +530,90 @@ export default function JournalPage() {
     setPending(pendingRes?.pending || []);
   }, [tier]);
 
+  /* Today: load trading plan */
+  const loadPlan = useCallback(async () => {
+    setPlanLoading(true);
+    try {
+      const res  = await authFetch(`/api/plans?date=${today}`);
+      const data = await res.json();
+      const p    = data.plan;
+      if (p) {
+        setPlanId(p.id);
+        setPlanMaxTrades(p.max_trades_per_day || 5);
+        setPlanMaxLoss(p.max_loss_per_day || 5000);
+        const r = Array.isArray(p.risk_rules) ? p.risk_rules[0] : p.risk_rules;
+        setPlanNoTradeBefore(r?.no_trade_before_minutes ?? 15);
+        setPlanMaxQtyPerScript(r?.max_quantity_per_script ?? 50);
+        setPlanScenarios((p.scenarios || []).map(sc => ({
+          id: sc.id,
+          conditionType: sc.condition_type || 'range',
+          conditionValueLow: sc.condition_value_low ?? '',
+          conditionValueHigh: sc.condition_value_high ?? '',
+          action: sc.action || 'buy_ce',
+          instrument: sc.instrument || '',
+          maxQuantity: sc.max_quantity || 25,
+          entryReason: sc.entry_reason || '',
+          entryPrice: sc.entry_price ?? '',
+          targetPrice: sc.target_price ?? '',
+          stopLoss: sc.stop_loss ?? '',
+          product: sc.product || 'I',
+        })));
+      } else {
+        setPlanId(null);
+        setPlanScenarios([]);
+      }
+    } catch {}
+    finally { setPlanLoading(false); }
+  }, [today]);
+
+  async function savePlan() {
+    setPlanSaving(true);
+    try {
+      const body = {
+        title: `Plan · ${today}`,
+        date: today,
+        maxTradesPerDay: parseInt(planMaxTrades, 10) || 5,
+        maxLossPerDay: parseFloat(planMaxLoss) || 5000,
+        scenarios: planScenarios.map(s => ({
+          conditionType: s.conditionType,
+          conditionValueLow:  s.conditionValueLow  ? parseFloat(s.conditionValueLow)  : null,
+          conditionValueHigh: s.conditionValueHigh ? parseFloat(s.conditionValueHigh) : null,
+          action: s.action,
+          instrument: s.instrument,
+          maxQuantity: parseInt(s.maxQuantity, 10) || 25,
+          entryReason: s.entryReason || '',
+          entryPrice:  s.entryPrice  ? parseFloat(s.entryPrice)  : null,
+          targetPrice: s.targetPrice ? parseFloat(s.targetPrice) : null,
+          stopLoss:    s.stopLoss    ? parseFloat(s.stopLoss)    : null,
+          product: s.product || 'I',
+        })),
+        riskRules: {
+          maxQuantityPerScript: parseInt(planMaxQtyPerScript, 10) || 50,
+          noTradeBeforeMinutes: parseInt(planNoTradeBefore, 10) || 15,
+          allowDuplicateScripts: false,
+        },
+      };
+      const url    = planId ? `/api/plans/${planId}` : '/api/plans';
+      const method = planId ? 'PATCH' : 'POST';
+      const res  = await authFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save plan');
+      if (!planId && data.planId) setPlanId(data.planId);
+      setPlanSaved(true); setTimeout(() => setPlanSaved(false), 2000);
+    } catch (err) { alert(err.message); }
+    finally { setPlanSaving(false); }
+  }
+
+  function blankScenario() {
+    return { conditionType: 'range', conditionValueLow: '', conditionValueHigh: '', action: 'buy_ce', instrument: '', maxQuantity: 25, entryReason: '', entryPrice: '', targetPrice: '', stopLoss: '', product: 'I' };
+  }
+  function addPlanScenario() { setPlanScenarios(prev => [...prev, blankScenario()]); }
+  function removePlanScenario(i) { setPlanScenarios(prev => prev.filter((_, idx) => idx !== i)); }
+  function updatePlanScenario(i, key, val) { setPlanScenarios(prev => prev.map((s, idx) => idx === i ? { ...s, [key]: val } : s)); }
+
   useEffect(() => {
-    if (tab === 'today') { loadDJ(); loadTrades(); }
-  }, [tab, loadDJ, loadTrades]);
+    if (tab === 'today') { loadDJ(); loadTrades(); loadPlan(); }
+  }, [tab, loadDJ, loadTrades, loadPlan]);
 
   async function saveDJ() {
     setDjSaving(true);
@@ -481,22 +655,58 @@ export default function JournalPage() {
 
   useEffect(() => {
     if (tab === 'history') { loadHistory(); loadDJMonth(calMonth); }
+    if (tab === 'manage' && !manageLoaded) loadManage();
   }, [tab]);
 
   useEffect(() => {
     if (tab === 'history') loadDJMonth(calMonth);
   }, [calMonth]);
 
+  async function loadManage() {
+    setManageLoading(true);
+    try {
+      const res  = await authFetch('/api/journal?mode=all');
+      const data = await res.json();
+      setManageEntries(data.entries || []);
+      setManageLoaded(true);
+    } catch {} finally { setManageLoading(false); }
+  }
+
+  async function handleMoveToTest(id) {
+    try {
+      await authFetch(`/api/journal/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tradeMode: 'test' }),
+      });
+      setManageEntries(prev => prev.map(e => e.id === id ? { ...e, trade_mode: 'test' } : e));
+    } catch (err) { alert(err.message); }
+    setManageAction(null);
+  }
+
+  async function handleDeleteTrade(id) {
+    try {
+      await authFetch(`/api/journal/${id}`, { method: 'DELETE' });
+      setManageEntries(prev => prev.filter(e => e.id !== id));
+    } catch (err) { alert(err.message); }
+    setManageAction(null);
+  }
+
   /* History: select date */
   async function handleSelectDate(date) {
-    if (date === selDate) { setSelDate(null); setSelDJ(null); return; }
+    if (date === selDate) { setSelDate(null); setSelDJ(null); setSelPlan(null); return; }
     setSelDate(date);
     setSelDJLoading(true);
+    setSelPlan(null);
     try {
-      const res  = await authFetch(`/api/daily-journal?date=${date}`);
-      const data = await res.json();
-      setSelDJ(data.entry || null);
-    } catch { setSelDJ(null); }
+      const [djRes, planRes] = await Promise.all([
+        authFetch(`/api/daily-journal?date=${date}`),
+        authFetch(`/api/plans?date=${date}`),
+      ]);
+      const [djData, planData] = await Promise.all([djRes.json(), planRes.json()]);
+      setSelDJ(djData.entry || null);
+      setSelPlan(planData.plan || null);
+    } catch { setSelDJ(null); setSelPlan(null); }
     finally { setSelDJLoading(false); }
   }
 
@@ -523,6 +733,7 @@ export default function JournalPage() {
         <div style={{ display: 'inline-flex', background: 'var(--bg-secondary,#f0f0f0)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
           <button style={TAB_BTN(tab === 'today')}   onClick={() => setTab('today')}>Today</button>
           <button style={TAB_BTN(tab === 'history')} onClick={() => setTab('history')}>History</button>
+          <button style={TAB_BTN(tab === 'manage')}  onClick={() => setTab('manage')}>Manage</button>
         </div>
       </div>
 
@@ -577,6 +788,151 @@ export default function JournalPage() {
                   {djSaving ? 'Saving…' : djSaved ? '✅ Saved' : '💾 Save Pre-Market'}
                 </button>
               </div>
+            )}
+          </Section>
+
+          {/* Trading Plan */}
+          <Section icon="📋" title="Trading Plan" subtitle="If-then scenarios · Risk rules"
+            accentColor="#4a148c" accentBg="#f9f4ff">
+            {planLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading…</div>
+            ) : (
+              <>
+                {planScenarios.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '6px' }}>📋</div>
+                    <div style={{ fontSize: '13px' }}>No scenarios yet. Build your if-then plan before you trade.</div>
+                  </div>
+                )}
+
+                {planScenarios.map((s, i) => {
+                  const ep  = parseFloat(s.entryPrice);
+                  const sl  = parseFloat(s.stopLoss);
+                  const tgt = parseFloat(s.targetPrice);
+                  const rr  = ep && sl && tgt && Math.abs(ep - sl) > 0
+                    ? (Math.abs(tgt - ep) / Math.abs(ep - sl)).toFixed(2) : null;
+                  return (
+                    <div key={i} style={{ border: '1px solid #e1d4f9', borderRadius: '12px', padding: '14px', marginBottom: '10px', background: '#fdf9ff' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <strong style={{ fontSize: '12px', color: '#4a148c', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Scenario {i + 1}</strong>
+                        <button onClick={() => removePlanScenario(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sell)', fontSize: '16px', lineHeight: 1, padding: 0 }}>✕</button>
+                      </div>
+
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>IF Nifty is</div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                          {['range', 'above', 'below'].map(t => (
+                            <button key={t} onClick={() => updatePlanScenario(i, 'conditionType', t)} style={{
+                              padding: '4px 12px', borderRadius: '12px', border: '1.5px solid',
+                              borderColor: s.conditionType === t ? '#4a148c' : 'var(--border)',
+                              background: s.conditionType === t ? '#4a148c' : '#fff',
+                              color: s.conditionType === t ? '#fff' : 'var(--text-muted)',
+                              fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                            }}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                          ))}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: s.conditionType === 'range' ? '1fr 1fr' : '1fr', gap: '6px' }}>
+                          <input type="number" value={s.conditionValueLow} onChange={e => updatePlanScenario(i, 'conditionValueLow', e.target.value)}
+                            placeholder={s.conditionType === 'range' ? 'Low level' : s.conditionType === 'above' ? 'Above level' : 'Below level'}
+                            style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', outline: 'none' }} />
+                          {s.conditionType === 'range' && (
+                            <input type="number" value={s.conditionValueHigh} onChange={e => updatePlanScenario(i, 'conditionValueHigh', e.target.value)}
+                              placeholder="High level"
+                              style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', outline: 'none' }} />
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>THEN</div>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                          {Object.entries(ACTION_LABELS).map(([key, label]) => (
+                            <button key={key} onClick={() => updatePlanScenario(i, 'action', key)} style={{
+                              padding: '4px 10px', borderRadius: '12px', border: '1.5px solid',
+                              borderColor: s.action === key ? (key.startsWith('buy') ? 'var(--buy)' : key.startsWith('sell') ? 'var(--sell)' : '#666') : 'var(--border)',
+                              background: s.action === key ? (key.startsWith('buy') ? '#e8f5e9' : key.startsWith('sell') ? '#fce4ec' : '#f0f0f0') : '#fff',
+                              color: s.action === key ? (key.startsWith('buy') ? 'var(--buy)' : key.startsWith('sell') ? 'var(--sell)' : '#333') : 'var(--text-muted)',
+                              fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                            }}>{label}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                        {[
+                          ['Instrument', 'instrument', 'text', 'NIFTY CE'],
+                          ['Entry Price', 'entryPrice', 'number', '0.00'],
+                          ['Stop Loss', 'stopLoss', 'number', '0.00'],
+                          ['Target', 'targetPrice', 'number', '0.00'],
+                        ].map(([lbl, key, type, ph]) => (
+                          <div key={key}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{lbl}</label>
+                            <input type={type} value={s[key] ?? ''} onChange={e => updatePlanScenario(i, key, type === 'text' ? e.target.value.toUpperCase() : e.target.value)}
+                              placeholder={ph} style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '13px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', textTransform: type === 'text' ? 'uppercase' : 'none' }} />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Entry Reason / Notes</label>
+                        <input value={s.entryReason} onChange={e => updatePlanScenario(i, 'entryReason', e.target.value)}
+                          placeholder="Breakout, trend, news catalyst..." style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '13px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {rr ? (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            R:R = <strong style={{ color: parseFloat(rr) >= 1.5 ? 'var(--buy)' : 'var(--sell)' }}>{rr}:1</strong>
+                          </span>
+                        ) : <span />}
+                        <button onClick={() => {
+                          const dir = s.action.startsWith('sell') ? 'SELL' : 'BUY';
+                          setPrefillModal({ instrument: s.instrument, direction: dir, entryPrice: s.entryPrice, stopLoss: s.stopLoss, targetPrice: s.targetPrice });
+                          setManualModal(true);
+                        }} style={{
+                          padding: '7px 16px', background: 'var(--primary)', color: '#fff',
+                          border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        }}>
+                          Log Trade →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button onClick={addPlanScenario} style={{
+                  width: '100%', padding: '10px', border: '2px dashed #c4b5f4', borderRadius: '8px',
+                  background: 'none', cursor: 'pointer', color: '#4a148c', fontWeight: 600, fontSize: '13px', marginBottom: '14px',
+                }}>
+                  + Add Scenario
+                </button>
+
+                <div style={{ background: '#f5f5f5', borderRadius: '10px', padding: '12px 14px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '10px' }}>Risk Rules</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {[
+                      ['Max Trades/Day', planMaxTrades, setPlanMaxTrades],
+                      ['Max Loss (₹)', planMaxLoss, setPlanMaxLoss],
+                      ['No-Trade (min after 9:15)', planNoTradeBefore, setPlanNoTradeBefore],
+                      ['Max Qty/Script', planMaxQtyPerScript, setPlanMaxQtyPerScript],
+                    ].map(([label, val, setter]) => (
+                      <div key={label}>
+                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{label}</label>
+                        <input type="number" min={0} value={val} onChange={e => setter(e.target.value)}
+                          style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '13px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button onClick={savePlan} disabled={planSaving} style={{
+                  padding: '9px 22px', background: planSaved ? '#2e7d32' : '#4a148c',
+                  color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                  cursor: planSaving ? 'not-allowed' : 'pointer', transition: 'background 0.3s',
+                }}>
+                  {planSaving ? 'Saving…' : planSaved ? '✅ Saved' : '💾 Save Plan'}
+                </button>
+              </>
             )}
           </Section>
 
@@ -666,7 +1022,7 @@ export default function JournalPage() {
             </div>
           </Section>
 
-          <ManualJournalModal isOpen={manualModal} onClose={() => setManualModal(false)} onSaved={loadTrades} />
+          <ManualJournalModal isOpen={manualModal} onClose={() => { setManualModal(false); setPrefillModal(null); }} onSaved={loadTrades} tradeMode={userTestMode ? 'test' : 'real'} prefill={prefillModal} />
           <JournalModal
             isOpen={brokerModal.open}
             orderId={brokerModal.orderId}
@@ -681,7 +1037,7 @@ export default function JournalPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <CalendarView
             calMonth={calMonth}
-            onMonthChange={(month) => { setCalMonth(month); setSelDate(null); setSelDJ(null); }}
+            onMonthChange={(month) => { setCalMonth(month); setSelDate(null); setSelDJ(null); setSelPlan(null); }}
             tradeDateMap={tradeDateMap}
             djDateSet={djDateSet}
             selectedDate={selDate}
@@ -691,8 +1047,142 @@ export default function JournalPage() {
             date={selDate}
             djEntry={selDJ}
             tradeGroup={selDate ? tradeDateMap[selDate] : null}
+            dayPlan={selPlan}
             loading={selDJLoading}
           />
+        </div>
+      )}
+
+      {/* ══ MANAGE ══ */}
+      {tab === 'manage' && (
+        <div>
+          {/* Confirm modal */}
+          {manageAction && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 340, width: '100%' }}>
+                <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>
+                  {manageAction.type === 'delete' ? '🗑️ Delete Test Trade?' : '🧪 Move to Test?'}
+                </div>
+                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+                  {manageAction.type === 'delete'
+                    ? 'This test trade will be permanently deleted and cannot be recovered.'
+                    : 'This real trade will be moved to test. This cannot be undone — test trades cannot be moved back to real.'}
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setManageAction(null)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                  <button
+                    onClick={() => manageAction.type === 'delete' ? handleDeleteTrade(manageAction.id) : handleMoveToTest(manageAction.id)}
+                    style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: manageAction.type === 'delete' ? '#dc2626' : '#f59e0b', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                  >
+                    {manageAction.type === 'delete' ? 'Delete' : 'Move to Test'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            <input
+              placeholder="Search instrument…"
+              value={manageFilter.search}
+              onChange={e => setManageFilter(f => ({ ...f, search: e.target.value }))}
+              style={{ flex: '1 1 140px', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+            />
+            {['all','real','test'].map(m => (
+              <button key={m} onClick={() => setManageFilter(f => ({ ...f, mode: m }))}
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  borderColor: manageFilter.mode === m ? (m === 'test' ? '#f59e0b' : m === 'real' ? '#6366f1' : '#374151') : '#e5e7eb',
+                  background: manageFilter.mode === m ? (m === 'test' ? '#fef3c7' : m === 'real' ? '#ede9fe' : '#f3f4f6') : '#fff',
+                  color: manageFilter.mode === m ? (m === 'test' ? '#92400e' : m === 'real' ? '#4338ca' : '#374151') : '#9ca3af',
+                }}>
+                {m === 'all' ? 'All' : m === 'real' ? '📊 Real' : '🧪 Test'}
+              </button>
+            ))}
+            {['all','win','loss'].map(r => (
+              <button key={r} onClick={() => setManageFilter(f => ({ ...f, result: r }))}
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  borderColor: manageFilter.result === r ? '#374151' : '#e5e7eb',
+                  background: manageFilter.result === r ? '#f3f4f6' : '#fff',
+                  color: manageFilter.result === r ? '#374151' : '#9ca3af',
+                }}>
+                {r === 'all' ? 'All results' : r === 'win' ? '✅ Win' : '❌ Loss'}
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
+          {manageLoading ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading…</div>
+          ) : (() => {
+            const filtered = manageEntries.filter(e => {
+              if (manageFilter.mode !== 'all' && e.trade_mode !== manageFilter.mode) return false;
+              if (manageFilter.result === 'win'  && (e.pnl || 0) <= 0) return false;
+              if (manageFilter.result === 'loss' && (e.pnl || 0) >= 0) return false;
+              if (manageFilter.search && !(e.instrument || '').toLowerCase().includes(manageFilter.search.toLowerCase())) return false;
+              return true;
+            });
+
+            if (!filtered.length) return (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 14 }}>No trades match the filters</div>
+            );
+
+            return (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                      {['Date', 'Instrument', 'Dir', 'P&L', 'Plan?', 'Mode', 'Actions'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(e => {
+                      const isTest = e.trade_mode === 'test';
+                      const pnlPos = (e.pnl || 0) >= 0;
+                      return (
+                        <tr key={e.id} style={{ borderBottom: '1px solid var(--border)', background: isTest ? '#fffbeb' : '#fff' }}>
+                          <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{e.trade_date || '—'}</td>
+                          <td style={{ padding: '10px 10px', fontWeight: 700 }}>{e.instrument || '—'}</td>
+                          <td style={{ padding: '10px 10px', color: e.direction === 'long' ? 'var(--buy)' : 'var(--sell)', fontWeight: 700, textTransform: 'uppercase' }}>{e.direction || '—'}</td>
+                          <td style={{ padding: '10px 10px', fontWeight: 700, color: pnlPos ? 'var(--buy)' : 'var(--sell)' }}>
+                            {e.pnl != null ? `${pnlPos ? '+' : ''}₹${Math.abs(e.pnl).toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td style={{ padding: '10px 10px' }}>
+                            {e.followed_plan === true ? '✅' : e.followed_plan === false ? '❌' : '—'}
+                          </td>
+                          <td style={{ padding: '10px 10px' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                              background: isTest ? '#fef3c7' : '#ede9fe',
+                              color: isTest ? '#92400e' : '#4338ca' }}>
+                              {isTest ? '🧪 Test' : '📊 Real'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
+                            {isTest ? (
+                              <button onClick={() => setManageAction({ type: 'delete', id: e.id })}
+                                style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                🗑️ Delete
+                              </button>
+                            ) : (
+                              <button onClick={() => setManageAction({ type: 'move', id: e.id })}
+                                style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                🧪 Move to Test
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10, textAlign: 'right' }}>
+                  {filtered.length} trade{filtered.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

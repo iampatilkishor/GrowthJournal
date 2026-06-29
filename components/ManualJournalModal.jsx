@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authFetch } from '@/lib/authFetch.js';
 
 const EMOTIONS = [
@@ -41,10 +41,10 @@ function NumInput({ value, onChange, placeholder, step = '0.01' }) {
   );
 }
 
-export default function ManualJournalModal({ isOpen, onClose, onSaved }) {
+export default function ManualJournalModal({ isOpen, onClose, onSaved, tradeMode = 'real', prefill = null }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [form, setForm] = useState({
+  const blankForm = () => ({
     tradeDate:   today,
     instrument:  '',
     direction:   '',
@@ -60,8 +60,28 @@ export default function ManualJournalModal({ isOpen, onClose, onSaved }) {
     entryReason: '',
     outcomeNotes: '',
   });
+
+  const [form, setForm] = useState(blankForm());
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
+
+  // When modal opens with a scenario prefill, populate relevant fields
+  useEffect(() => {
+    if (isOpen && prefill) {
+      setForm(prev => ({
+        ...prev,
+        instrument:  prefill.instrument  || prev.instrument,
+        direction:   prefill.direction   || prev.direction,
+        entryPrice:  String(prefill.entryPrice  ?? prev.entryPrice),
+        stopLoss:    String(prefill.stopLoss    ?? prev.stopLoss),
+        targetPrice: String(prefill.targetPrice ?? prev.targetPrice),
+      }));
+    }
+    if (!isOpen) {
+      setForm(blankForm());
+      setError('');
+    }
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null;
 
@@ -115,14 +135,13 @@ export default function ManualJournalModal({ isOpen, onClose, onSaved }) {
           emotion:     form.emotion,
           entryReason: form.entryReason,
           outcomeNotes: form.outcomeNotes,
+          tradeMode,
         }),
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || 'Failed to save');
       }
-      // Reset form
-      setForm({ tradeDate: today, instrument: '', direction: '', entryPrice: '', stopLoss: '', targetPrice: '', exitPrice: '', qty: '', grossPnl: '', brokerage: '', followedPlan: null, emotion: '', entryReason: '', outcomeNotes: '' });
       onSaved?.();
       onClose();
     } catch (err) {

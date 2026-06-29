@@ -7,6 +7,21 @@ export async function GET(request) {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const { searchParams } = new URL(request.url);
+    const date = searchParams.get('date');
+
+    // If a specific date is requested, return that day's plan with full scenarios
+    if (date) {
+      const { data: plan } = await db.from('plans')
+        .select(`*, scenarios(*), risk_rules(*)`)
+        .eq('user_id', userId)
+        .eq('date', date)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      return NextResponse.json({ plan: plan || null });
+    }
+
     const { data: plans } = await db.from('plans')
       .select(`*, scenarios(count), watchlist(count)`)
       .eq('user_id', userId)
